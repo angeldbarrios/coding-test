@@ -32,7 +32,7 @@ export default function TypeBox() {
     ? Number(storedCurrentLesson)
     : 1
   );
-  
+
   const [wordList, setWordList] = useState(() => {
     const cachedWordList = sessionStorage.getItem('wordList');
     if (cachedWordList) {
@@ -70,7 +70,7 @@ export default function TypeBox() {
 
   const handlerCountDown = useCallback(() => {
     if (intervalRef.current !== null) return;
-    setSecondsLeft(Math.ceil(totalLettersRef.current / 2));
+    setSecondsLeft(Math.ceil(totalLettersRef.current / 2)); // 2 letters per second
     intervalRef.current = setInterval(() => {
       setSecondsLeft((prevSecondsLeft) => {
         const updatedCountDownInSeconds = prevSecondsLeft - 1;
@@ -137,20 +137,23 @@ export default function TypeBox() {
         }
       }
     } else {
-      // const duplicateIncorrect = typeboxState.incorrects.find((
-      //   [wordIndex, letterIndex]) =>
-      // (
-      //   wordIndex === typeboxState.wordIndex &&
-      //   letterIndex === typeboxState.letterIndex
-      // ));
+      const duplicateIncorrect = typeboxState.incorrects.find((
+        [wordIndex, letterIndex]) => {
+        return (
+          wordIndex === typeboxState.wordIndex &&
+          letterIndex === typeboxState.letterIndex
+        );
+      });
+      if (duplicateIncorrect) return;
+      setTypeboxState({
+        ...typeboxState,
+        incorrects: [...typeboxState.incorrects, [typeboxState.wordIndex, typeboxState.letterIndex]]
+      });
 
-      // if (duplicateIncorrect) return;
-      // setTypeboxState((prevTypeBoxState) => {
-      //   return {
-      //     ...prevTypeBoxState,
-      //     incorrects: [...prevTypeBoxState.incorrects, [prevTypeBoxState.wordIndex, prevTypeBoxState.letterIndex]]
-      //   };
-      // });
+      console.log({
+        ...typeboxState,
+        incorrects: [...typeboxState.incorrects, [typeboxState.wordIndex, typeboxState.letterIndex]]
+      })
     }
   }, [lessonWordList, typeboxState, currentLesson]);
 

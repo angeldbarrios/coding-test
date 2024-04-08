@@ -39,9 +39,11 @@ export default function Letter({
   if (isCurrentLetter()) {
     letterClassName = 'active';
   } else if (isPastLetter()) {
-    letterClassName = 'correct';
-  } else if (isIncorrect()) {
-    letterClassName = 'incorrect';
+    if (isIncorrect()) {
+      letterClassName = 'incorrect';
+    } else {
+      letterClassName = 'correct';
+    }
   }
 
   return (
