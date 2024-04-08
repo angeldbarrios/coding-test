@@ -177,7 +177,6 @@ export default function TypeBox() {
   };
 
   useEffect(() => {
-    // TODO: cache the wordList
     fetch('/Harry-Potter-1-Sorcerer\'s-Stone.txt', { cache: 'force-cache' })
       .then(response => {
         if (!response.ok) throw new Error('Network response was not ok');
