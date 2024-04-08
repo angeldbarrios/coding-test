@@ -1,89 +1,201 @@
-import React, { useState, useEffect } from 'react';
-import CharGroup from './CharGroup';
-import { getCharGroups } from '../utils';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Word from './Word';
+import { extractWords, recoverLessonData } from '../utils';
+
+const {
+  storedLessonData,
+  storedCurrentLesson
+} = recoverLessonData();
+
+console.log('storedLessonData', storedLessonData);
+console.log('storedCurrentLesson', storedCurrentLesson);
+
+const defaultLessonData = {
+  1: {
+    letters: ['a', 's', 'd', 'f'],
+    unlocked: true
+  },
+  2: {
+    letters: ['a', 'c', 'd', 'e'],
+    unlocked: false
+  },
+  3: {
+    letters: ['a', 'e', 'i', 'd', 'j'],
+    unlocked: false
+  },
+};
 
 export default function TypeBox() {
   const [rawText, setRawText] = useState('');
-  const [charGroups, setCharGroups] = useState([]);
-  const [typeState, setTypeState] = useState({
-    textPointer: 0,
-    currentCharGroup: 0,
-    currentChar: 0,
+  const [currentLesson, setCurrentLesson] = useState(storedCurrentLesson
+    ? Number(storedCurrentLesson)
+    : 1
+  );
+  const [isLessonInProgress, setIsLessonInProgress] = useState(false);
+
+  const [secondsLeft, setSecondsLeft] = useState(10);
+  const [lessonResult, setLessonResult] = useState({
+    show: false,
+    success: false,
+    message: null
   });
 
-  const handleKeyDown = (pressedKey) => {
-    const { currentCharGroup: charGroupIndex, currentChar: charIndex } = typeState;
-    const charGroup = charGroups[charGroupIndex];
-    const char = charGroup[charIndex];
+  const totalLettersRef = useRef(0);
+  const intervalRef = useRef(null);
+  const lessonDataRef = useRef(defaultLessonData);
 
-    const nextChar = charGroup[charIndex + 1];
-    const nextCharIndex = charIndex + 1;
+  const [wordList, setWordList] = useState([]);
+  const [lessonWordList, setLessonWordList] = useState([]);
+  const [typeboxState, setTypeboxState] = useState({
+    wordIndex: 0,
+    letterIndex: 0,
+    incorrects: [],
+  });
 
-    const nextCharGroup = charGroups[charGroupIndex + 1];
-    const nextCharGroupIndex = charGroupIndex + 1;
+  const resetTypebox = () => {
+    setIsLessonInProgress(false);
+    setTypeboxState({
+      wordIndex: 0,
+      letterIndex: 0,
+      incorrects: []
+    });
+  };
 
-    if (!nextCharGroup) {
-      // load more text
-      return;
-    };
+  const handlerCountDown = useCallback(() => {
+    if (intervalRef.current !== null) return;
+    setSecondsLeft(Math.ceil(totalLettersRef.current / 2));
+    intervalRef.current = setInterval(() => {
+      setSecondsLeft((prevSecondsLeft) => {
+        const updatedCountDownInSeconds = prevSecondsLeft - 1;
+        if (updatedCountDownInSeconds <= 0) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+          resetTypebox();
+          setLessonResult({
+            show: true,
+            success: false,
+            message: 'Time is up! Try again'
+          });
+          return 0;
+        }
+        return updatedCountDownInSeconds;
+      });
+    }, 1000);
+  }, []);
 
+  const handleKeyDown = useCallback((pressedKey) => {
+    const currentWord = lessonWordList[typeboxState.wordIndex];
+    const currentLetter = currentWord[typeboxState.letterIndex];
 
-    if (pressedKey === 'Backspace') {
-      if (charIndex === 0 && charGroupIndex === 0) return;
-      if (charIndex === 0) {
-        const prevCharIndex = charGroups[charGroupIndex - 1].length - 1;
-        setTypeState({
-          ...typeState,
-          currentCharGroup: charGroupIndex - 1,
-          currentChar: prevCharIndex
-        });
-      } else {
-        setTypeState({
-          ...typeState,
-          currentChar: charIndex - 1
+    const nextLetterIndex = typeboxState.letterIndex + 1;
+    const nextLetter = currentWord[nextLetterIndex];
+    const nextWordIndex = typeboxState.wordIndex + 1;
+    const nextWord = lessonWordList[nextWordIndex];
+
+    if (pressedKey === ' ' && !nextLetter) {
+      if (nextWord) {
+        setTypeboxState({
+          wordIndex: typeboxState.wordIndex + 1,
+          letterIndex: 0,
+          incorrects: [...typeboxState.incorrects]
         });
       }
-    } else if (
-      (pressedKey === 'Enter' && char === '\n') ||
-      (pressedKey === ' ' && char === '\n') ||
-      (pressedKey === char)
-    ) {
-      if (nextChar) {
-        setTypeState({
-          ...typeState,
-          textPointer: typeState.textPointer + 1,
-          currentChar: nextCharIndex
-        });
-      } else {
-        setTypeState({
-          ...typeState,
-          textPointer: typeState.textPointer + 1,
-          currentCharGroup: nextCharGroupIndex,
-          currentChar: 0
-        });
+    } else if (pressedKey === currentLetter) {
+      setTypeboxState({
+        wordIndex: typeboxState.wordIndex,
+        letterIndex: typeboxState.letterIndex + 1,
+        incorrects: [...typeboxState.incorrects]
+      });
+      if (!nextLetter && !nextWord) {
+        // Level passed
+        resetTypebox();
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+
+        const nextLesson = lessonDataRef.current[currentLesson + 1];
+        if (nextLesson) {
+          nextLesson.unlocked = true;
+          localStorage.setItem('lessonData', JSON.stringify(lessonDataRef.current));
+          setLessonResult({
+            show: true,
+            success: true,
+            message: 'Lesson passed',
+          });
+        } else {
+          setLessonResult({
+            show: true,
+            success: true,
+            message: 'All lessons passed',
+          });
+        }
       }
+    } else {
+      // const duplicateIncorrect = typeboxState.incorrects.find((
+      //   [wordIndex, letterIndex]) =>
+      // (
+      //   wordIndex === typeboxState.wordIndex &&
+      //   letterIndex === typeboxState.letterIndex
+      // ));
+
+      // if (duplicateIncorrect) return;
+      // setTypeboxState((prevTypeBoxState) => {
+      //   return {
+      //     ...prevTypeBoxState,
+      //     incorrects: [...prevTypeBoxState.incorrects, [prevTypeBoxState.wordIndex, prevTypeBoxState.letterIndex]]
+      //   };
+      // });
+    }
+  }, [lessonWordList, typeboxState, currentLesson]);
+
+  const handleClickRestart = () => {
+    setLessonResult({
+      show: false,
+      success: false,
+      message: null
+    });
+  };
+
+  const handleChangeLesson = (requestedLessonNumber) => {
+    if (isLessonInProgress) return;
+    if (lessonDataRef?.current?.[requestedLessonNumber]?.unlocked) {
+      handleClickRestart();
+      setCurrentLesson(requestedLessonNumber);
+      localStorage.setItem('currentLesson', requestedLessonNumber)
+    } else {
+      alert('Invalid lesson number')
     }
   };
 
   useEffect(() => {
+    // TODO: cache the wordList
     fetch('/Harry-Potter-1-Sorcerer\'s-Stone.txt')
       .then(response => {
         if (!response.ok) throw new Error('Network response was not ok');
         return response.text();
       })
       .then(text => {
-        setRawText(text.substring(0, 807));
+        setRawText(text);
       })
       .catch(error => console.error('Error:', error))
   }, []);
 
   useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     document.onkeydown = (e) => {
-      if (
-        e.key.length === 1 ||
-        e.key === "Backspace" ||
-        e.key === "Enter"
-      ) {
+      if (e.key.length === 1) {
+        if (!isLessonInProgress) {
+          const totalLetters = lessonWordList.reduce((acc, word) => acc + word.length, 0);
+          totalLettersRef.current = totalLetters;
+          handlerCountDown(totalLetters);
+          setIsLessonInProgress(true);
+        }
         handleKeyDown(e.key);
         e.preventDefault();
       }
@@ -91,33 +203,102 @@ export default function TypeBox() {
     return () => {
       document.onkeydown = null;
     };
-  }, [handleKeyDown]);
+  }, [handleKeyDown, handlerCountDown, isLessonInProgress, lessonWordList]);
 
   useEffect(() => {
     if (rawText.length === 0) return;
-    const charGroups = getCharGroups(rawText);
-    setCharGroups(charGroups);
-    setTypeState({
-      ...typeState,
-      currentCharGroup: 146,
-      currentChar: 1,
-    });
+    // TODO: cache the wordList
+    const wordList = extractWords(rawText);
+    setWordList(wordList);
   }, [rawText]);
+
+  useEffect(() => {
+    const currentLessonData = lessonDataRef?.current?.[currentLesson];
+    const letters = currentLessonData?.letters;
+    const filteredWords = wordList.filter(word => {
+      return word.split('').every(char => letters.includes(char));
+    });
+
+    setLessonWordList(filteredWords);
+    currentLessonData.wordList = filteredWords;
+    localStorage.setItem('lessonData', JSON.stringify(currentLessonData));
+  }, [currentLesson, wordList]);
+
+  if (lessonResult.show) {
+    return (
+      <div className="typeboxContainer">
+        <h2>Lesson {currentLesson}</h2>
+        <p>{lessonResult.success ? 'Lesson passed' : lessonResult.message || 'Try again!'}</p>
+
+        <div className="typebox-results-buttons">
+          {
+            lessonDataRef?.current?.[currentLesson - 1]?.unlocked &&
+            (
+              <button onClick={() => handleChangeLesson(currentLesson - 1)}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                  <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                  <g id="SVGRepo_iconCarrier">
+                    <path d="M20.24 7.22005V16.7901C20.24 18.7501 18.11 19.98 16.41 19L12.26 16.61L8.10996 14.21C6.40996 13.23 6.40996 10.78 8.10996 9.80004L12.26 7.40004L16.41 5.01006C18.11 4.03006 20.24 5.25005 20.24 7.22005Z" stroke="#292D32" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M3.76001 18.1801V5.82007" stroke="#292D32" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                  </g>
+                </svg>
+              </button>
+            )
+          }
+
+          <button id="restart-button" onClick={() => handleClickRestart()}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
+              strokeLinecap="round" strokeLinejoin="round">
+              <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+              <path d="M19.933 13.041a8 8 0 1 1 -9.925 -8.788c3.899 -1 7.935 1.007 9.425 4.747" />
+              <path d="M20 4v5h-5" />
+            </svg>
+          </button>
+
+          {
+            lessonDataRef?.current?.[currentLesson + 1]?.unlocked &&
+            (
+              <button onClick={() => handleChangeLesson(currentLesson + 1)}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                  <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                  <g id="SVGRepo_iconCarrier">
+                    <path d="M3.76001 7.22005V16.7901C3.76001 18.7501 5.89 19.98 7.59 19L11.74 16.61L15.89 14.21C17.59 13.23 17.59 10.78 15.89 9.80004L11.74 7.40004L7.59 5.01006C5.89 4.03006 3.76001 5.25005 3.76001 7.22005Z" stroke="#292D32" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M20.24 18.1801V5.82007" stroke="#292D32" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                  </g>
+                </svg>
+              </button>
+            )
+          }
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="typeboxContainer">
+      <div className="lessonInfo">
+        <h2>Lesson {currentLesson}</h2>
+      </div>
+
+
       <div className="typebox">
-        {charGroups.map((charGroup, charGroupIndex) => {
+        {lessonWordList.map((word, wordIndex) => {
           return (
-            <CharGroup
-              key={charGroup + charGroupIndex}
-              rawText={rawText}
-              charGroup={charGroup}
-              charGroupIndex={charGroupIndex}
-              typeState={typeState}
+            <Word
+              key={word + wordIndex}
+              word={word}
+              wordIndex={wordIndex}
+              typeboxState={typeboxState}
             />)
         })}
       </div>
+      {
+        isLessonInProgress && <div>
+          {secondsLeft}s
+        </div>
+      }
     </div>
   );
 };

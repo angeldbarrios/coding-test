@@ -1,25 +1,30 @@
-export function getCharGroups(text) {
-  const charGroups = [];
-  let currentCharGroup = [];
+export function extractWords(text) {
+  const wordList = new Set();
+  let currentWord = '';
+
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
-    if (char === '') continue;
+    if (char === '"' || char === '-') continue;
 
-    if (char === ' ') {
-      charGroups.push(currentCharGroup.join(''));
-      charGroups.push(' ');
-      currentCharGroup = [];
-    } else if (char === '\n') {
-      if (currentCharGroup.length) {
-        // This is to handle the case where there are multiple new lines in a row
-        // 2 consecutive new lines shouldn't be allowed
-        charGroups.push(currentCharGroup.join(''));
-        charGroups.push('\n');
-        currentCharGroup = [];
+    const wordSeparator = [' ', '\n', '.', ',', '?', '!', ':', ';'];
+    if (wordSeparator.includes(char)) {
+      if (currentWord.length) {
+        if (!currentWord.includes("'")) wordList.add(currentWord.toLocaleLowerCase());
+        currentWord = '';
       }
     } else {
-      currentCharGroup.push(char);
+      currentWord += char;
     }
   }
-  return charGroups;
+  return Array.from(wordList);
 }
+
+export function recoverLessonData() {
+  const lessonData = localStorage.getItem('lessonData');
+  const currentLesson = localStorage.getItem('currentLesson');
+  if (!lessonData) return {};
+  return {
+    storedLessonData: JSON.parse(lessonData),
+    storedCurrentLesson: currentLesson
+  }
+};

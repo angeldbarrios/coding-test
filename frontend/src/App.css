@@ -9,7 +9,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  align-content: center;
   padding: 20px;
   font-family: monospace;
 }
@@ -17,14 +17,18 @@
 .typebox {
   user-select: none;
   display: flex;
+  align-items: center;
+  align-content: center;
   font-size: 14pt;
   height: 70%;
   width: 80%;
   max-width: 800px;
   flex-wrap: wrap;
+  gap: 5px;
+  margin: 0 auto;
 }
 
-.typebox .char {
+.typebox .letter {
   color: grey; 
   position: relative;
   &.active::before {
@@ -40,15 +44,27 @@
   &.correct {
     color: rgb(144, 222, 144);  
   }
+
+  &.incorrect {
+    color: rgb(222, 144, 144);
+  }
 }
 
-.char-group-br {
-  flex: 0 0 100%
+.typebox-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-content: center;
+  justify-content: space-around;
+  width: 80%;
 }
 
-.typebox .br {
-  margin-top: auto;  
+.typebox-results-buttons {
+  display: flex;
+  justify-content: center;
+  width: 100%;
 }
+
 
 @keyframes blink {
   0%,
@@ -58,38 +74,4 @@
   75% {
     opacity: 0;
   }
-}
-
-.textDisplay {
-  margin: 20px 0;
-  padding: 15px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  width: 80%;
-  height: 150px;
-  overflow-y: auto;
-  background-color: #f9f9f9;
-  color: #333;
-  font-family: 'Courier New', Courier, monospace;
-  white-space: pre-wrap;
-}
-
-.textInput {
-  width: 80%;
-  padding: 10px;
-  margin-bottom: 20px;
-  font-size: 16px;
-  border: 2px solid #007bff;
-  border-radius: 5px;
-}
-
-.stats {
-  display: flex;
-  justify-content: space-around;
-  width: 80%;
-}
-
-.statItem {
-  margin: 0 10px;
-  font-size: 18px;
 }
