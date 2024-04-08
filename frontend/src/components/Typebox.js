@@ -27,11 +27,26 @@ const defaultLessonData = {
 
 export default function TypeBox() {
   const [rawText, setRawText] = useState('');
+  const [isLessonInProgress, setIsLessonInProgress] = useState(false);
   const [currentLesson, setCurrentLesson] = useState(storedCurrentLesson
     ? Number(storedCurrentLesson)
     : 1
   );
-  const [isLessonInProgress, setIsLessonInProgress] = useState(false);
+  
+  const [wordList, setWordList] = useState(() => {
+    const cachedWordList = sessionStorage.getItem('wordList');
+    if (cachedWordList) {
+      console.log('cachedWordList', cachedWordList);
+      return JSON.parse(cachedWordList);
+    }
+    return [];
+  });
+  const [lessonWordList, setLessonWordList] = useState([]);
+  const [typeboxState, setTypeboxState] = useState({
+    wordIndex: 0,
+    letterIndex: 0,
+    incorrects: [],
+  });
 
   const [secondsLeft, setSecondsLeft] = useState(10);
   const [lessonResult, setLessonResult] = useState({
@@ -42,15 +57,7 @@ export default function TypeBox() {
 
   const totalLettersRef = useRef(0);
   const intervalRef = useRef(null);
-  const lessonDataRef = useRef(defaultLessonData);
-
-  const [wordList, setWordList] = useState([]);
-  const [lessonWordList, setLessonWordList] = useState([]);
-  const [typeboxState, setTypeboxState] = useState({
-    wordIndex: 0,
-    letterIndex: 0,
-    incorrects: [],
-  });
+  const lessonDataRef = useRef(storedLessonData || defaultLessonData);
 
   const resetTypebox = () => {
     setIsLessonInProgress(false);
@@ -168,7 +175,7 @@ export default function TypeBox() {
 
   useEffect(() => {
     // TODO: cache the wordList
-    fetch('/Harry-Potter-1-Sorcerer\'s-Stone.txt')
+    fetch('/Harry-Potter-1-Sorcerer\'s-Stone.txt', { cache: 'force-cache' })
       .then(response => {
         if (!response.ok) throw new Error('Network response was not ok');
         return response.text();
@@ -205,23 +212,39 @@ export default function TypeBox() {
     };
   }, [handleKeyDown, handlerCountDown, isLessonInProgress, lessonWordList]);
 
+
   useEffect(() => {
-    if (rawText.length === 0) return;
-    // TODO: cache the wordList
-    const wordList = extractWords(rawText);
-    setWordList(wordList);
+    if (!rawText.length) {
+      setWordList([]);
+    } else {
+      let words = extractWords(rawText);
+      sessionStorage.setItem('wordList', JSON.stringify(words));
+      setWordList(words);
+    }
   }, [rawText]);
 
   useEffect(() => {
     const currentLessonData = lessonDataRef?.current?.[currentLesson];
+    if (currentLessonData.wordList) {
+      console.log('cached currentLessonData.wordList', currentLessonData.wordList);
+      return setLessonWordList(currentLessonData.wordList);
+    }
+
     const letters = currentLessonData?.letters;
+    if (!letters) {
+      return setLessonResult({
+        show: true,
+        success: false,
+        message: 'Invalid lesson data'
+      });
+    };
+
     const filteredWords = wordList.filter(word => {
       return word.split('').every(char => letters.includes(char));
     });
-
     setLessonWordList(filteredWords);
     currentLessonData.wordList = filteredWords;
-    localStorage.setItem('lessonData', JSON.stringify(currentLessonData));
+    localStorage.setItem('lessonData', JSON.stringify(lessonDataRef.current));
   }, [currentLesson, wordList]);
 
   if (lessonResult.show) {
@@ -284,7 +307,7 @@ export default function TypeBox() {
 
 
       <div className="typebox">
-        {lessonWordList.map((word, wordIndex) => {
+        {lessonWordList && lessonWordList.map((word, wordIndex) => {
           return (
             <Word
               key={word + wordIndex}
